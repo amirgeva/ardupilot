@@ -176,7 +176,7 @@ public:
   void init()
   {
     Log("Initializing ISL Serial");
-    m_UART = serial_manager.find_serial(AP_SerialManager::SerialProtocol_ISL);
+    m_UART = serial_manager.find_serial(AP_SerialManager::SerialProtocol_ISL,0);
     if (!m_UART)
     {
       Log("Failed to initialize ISL Serial");
