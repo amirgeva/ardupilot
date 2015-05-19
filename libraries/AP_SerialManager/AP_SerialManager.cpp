@@ -160,6 +160,11 @@ void AP_SerialManager::init()
                                          AP_SERIALMANAGER_ALEXMOS_BUFSIZE_RX,
                                          AP_SERIALMANAGER_ALEXMOS_BUFSIZE_TX);
                     break;
+                case SerialProtocol_ISL:
+                    state[i].uart->begin(map_baudrate(state[i].baud), 
+                                         AP_SERIALMANAGER_MAVLINK_BUFSIZE_RX,
+                                         AP_SERIALMANAGER_MAVLINK_BUFSIZE_TX);
+                    break;
             }
         }
     }
