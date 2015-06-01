@@ -68,15 +68,12 @@
 #define AP_MOTORS_HELI_RSC_MODE_SETPOINT        2       // main rotor ESC is connected to RC8 (out), desired speed is held in RSC_SETPOINT parameter
 
 // default main rotor speed (ch8 out) as a number from 0 ~ 1000
-#define AP_MOTORS_HELI_RSC_SETPOINT             500
+#define AP_MOTORS_HELI_RSC_SETPOINT             700
 
 // default main rotor ramp up time in seconds
 #define AP_MOTORS_HELI_RSC_RAMP_TIME            1       // 1 second to ramp output to main rotor ESC to full power (most people use exterrnal govenors so we can ramp up quickly)
 #define AP_MOTORS_HELI_RSC_RUNUP_TIME           10      // 10 seconds for rotor to reach full speed
 #define AP_MOTORS_HELI_TAIL_RAMP_INCREMENT      5       // 5 is 2 seconds for direct drive tail rotor to reach to full speed (5 = (2sec*100hz)/1000)
-
-// motor run-up time default in 100th of seconds
-#define AP_MOTORS_HELI_MOTOR_RUNUP_TIME         500     // 500 = 5 seconds
 
 // flybar types
 #define AP_MOTORS_HELI_NOFLYBAR                 0
@@ -89,11 +86,7 @@ class AP_MotorsHeli : public AP_Motors {
 public:
 
     /// Constructor
-    AP_MotorsHeli( RC_Channel&      rc_roll,
-                   RC_Channel&      rc_pitch,
-                   RC_Channel&      rc_throttle,
-                   RC_Channel&      rc_yaw,
-                   RC_Channel&      servo_aux,
+    AP_MotorsHeli( RC_Channel&      servo_aux,
                    RC_Channel&      servo_rotor,
                    RC_Channel&      swash_servo_1,
                    RC_Channel&      swash_servo_2,
@@ -101,7 +94,7 @@ public:
                    RC_Channel&      yaw_servo,
                    uint16_t         loop_rate,
                    uint16_t         speed_hz = AP_MOTORS_HELI_SPEED_DEFAULT) :
-        AP_Motors(rc_roll, rc_pitch, rc_throttle, rc_yaw, loop_rate, speed_hz),
+        AP_Motors(loop_rate, speed_hz),
         _servo_aux(servo_aux),
         _servo_rsc(servo_rotor),
         _servo_1(swash_servo_1),
@@ -120,7 +113,6 @@ public:
         _rsc_runup_increment(0.0f),
         _rotor_speed_estimate(0.0f),
         _tail_direct_drive_out(0),
-        _dt(0.01f),
         _delta_phase_angle(0)
     {
 		AP_Param::setup_object_defaults(this, var_info);
@@ -128,7 +120,7 @@ public:
         // initialise flags
         _heliflags.swash_initialised = 0;
         _heliflags.landing_collective = 0;
-        _heliflags.motor_runup_complete = 0;
+        _heliflags.rotor_runup_complete = 0;
     };
 
     // init
@@ -185,7 +177,7 @@ public:
     void set_desired_rotor_speed(int16_t desired_speed);
 
     // return true if the main rotor is up to speed
-    bool motor_runup_complete() const;
+    bool rotor_runup_complete() const;
 
     // recalc_scalers - recalculates various scalers used.  Should be called at about 1hz to allow users to see effect of changing parameters
     void recalc_scalers();
@@ -195,10 +187,7 @@ public:
 
     // var_info for holding Parameter information
     static const struct AP_Param::GroupInfo var_info[];
-    
-    // set_dt for setting main loop rate time
-    void set_dt(float dt) { _dt = dt; }
-    
+
     // set_delta_phase_angle for setting variable phase angle compensation and force
     // recalculation of collective factors
     void set_delta_phase_angle(int16_t angle);
@@ -207,6 +196,15 @@ public:
     //  this can be used to ensure other pwm outputs (i.e. for servos) do not conflict
     virtual uint16_t    get_motor_mask();
 
+    // set_radio_passthrough used to pass radio inputs directly to outputs
+    void set_radio_passthrough(int16_t radio_roll_input, int16_t radio_pitch_input, int16_t radio_throttle_input, int16_t radio_yaw_input);
+
+    // reset_radio_passthrough used to reset all radio inputs to center
+    void reset_radio_passthrough();
+
+    // output - sends commands to the motors
+    void    output();
+
 protected:
 
     // output - sends commands to the motors
@@ -214,6 +212,9 @@ protected:
     void                output_armed_not_stabilizing();
     void                output_armed_zero_throttle();
     void                output_disarmed();
+
+    // update the throttle input filter
+    void                update_throttle_filter();
 
 private:
 
@@ -260,7 +261,7 @@ private:
     struct heliflags_type {
         uint8_t swash_initialised       : 1;    // true if swash has been initialised
         uint8_t landing_collective      : 1;    // true if collective is setup for landing which has much higher minimum
-        uint8_t motor_runup_complete    : 1;    // true if the rotors have had enough time to wind up
+        uint8_t rotor_runup_complete    : 1;    // true if the rotors have had enough time to wind up
     } _heliflags;
 
     // parameters
@@ -304,6 +305,10 @@ private:
     int16_t         _tail_direct_drive_out;     // current ramped speed of output on ch7 when using direct drive variable pitch tail type
     float           _dt;                        // main loop time
     int16_t         _delta_phase_angle;         // phase angle dynamic compensation
+    int16_t         _roll_radio_passthrough;    // roll control PWM direct from radio, used for manual control
+    int16_t         _pitch_radio_passthrough;   // pitch control PWM direct from radio, used for manual control
+    int16_t         _throttle_radio_passthrough;// throttle control PWM direct from radio, used for manual control
+    int16_t         _yaw_radio_passthrough;     // yaw control PWM direct from radio, used for manual control
 };
 
 #endif  // AP_MOTORSHELI

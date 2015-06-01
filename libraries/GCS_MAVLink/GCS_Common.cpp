@@ -19,6 +19,8 @@
 
 #include <GCS.h>
 #include <AP_AHRS.h>
+#include <AP_HAL.h>
+#include <AP_Vehicle.h>
 
 extern const AP_HAL::HAL& hal;
 
@@ -825,7 +827,7 @@ void GCS_MAVLINK::send_message(enum ap_message id)
 }
 
 void
-GCS_MAVLINK::update(void (*run_cli)(AP_HAL::UARTDriver *))
+GCS_MAVLINK::update(run_cli_fn run_cli)
 {
     // receive new packets
     mavlink_message_t msg;
@@ -838,7 +840,7 @@ GCS_MAVLINK::update(void (*run_cli)(AP_HAL::UARTDriver *))
     {
         uint8_t c = comm_receive_ch(chan);
 
-        if (run_cli != NULL) {
+        if (run_cli) {
             /* allow CLI to be started by hitting enter 3 times, if no
              *  heartbeat packets have been received */
             if ((mavlink_active==0) && (hal.scheduler->millis() - _cli_timeout) < 20000 && 
@@ -1177,7 +1179,7 @@ void GCS_MAVLINK::send_battery2(const AP_BattMonitor &battery)
 /*
   handle a SET_MODE MAVLink message
  */
-void GCS_MAVLINK::handle_set_mode(mavlink_message_t* msg, bool (*set_mode)(uint8_t mode))
+void GCS_MAVLINK::handle_set_mode(mavlink_message_t* msg, set_mode_fn set_mode)
 {
     uint8_t result = MAV_RESULT_FAILED;
     mavlink_set_mode_t packet;

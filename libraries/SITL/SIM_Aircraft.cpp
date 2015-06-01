@@ -24,6 +24,11 @@
 #include <unistd.h>
 #include <sys/time.h>
 #include <stdio.h>
+#ifdef __CYGWIN__
+#include <windows.h>
+#include <time.h>
+#include <Mmsystem.h>
+#endif
 
 /*
   parent class for all simulator types
@@ -44,7 +49,13 @@ Aircraft::Aircraft(const char *home_str, const char *frame_str) :
     gyro_noise(radians(0.1f)),
     accel_noise(0.3),
     rate_hz(400),
-    last_time_us(0)
+    last_time_us(0),
+    autotest_dir(NULL),
+#ifdef __CYGWIN__
+    min_sleep_time(20000)
+#else
+    min_sleep_time(5000)
+#endif
 {
     char *saveptr=NULL;
     char *s = strdup(home_str);
@@ -64,6 +75,9 @@ Aircraft::Aircraft(const char *home_str, const char *frame_str) :
     free(s);
 
     set_speedup(1);
+
+    last_wall_time_us = get_wall_time_us();
+    frame_counter = 0;
 }
 
 /*
@@ -129,33 +143,46 @@ void Aircraft::setup_frame_time(float new_rate, float new_speedup)
 /* adjust frame_time calculation */
 void Aircraft::adjust_frame_time(float new_rate)
 {
-    rate_hz = new_rate;
-    frame_time_us = 1.0e6f/rate_hz;
-    scaled_frame_time_us = frame_time_us/target_speedup;
+    if (rate_hz != new_rate) {
+        rate_hz = new_rate;
+        frame_time_us = 1.0e6f/rate_hz;
+        scaled_frame_time_us = frame_time_us/target_speedup;
+    }
 }
 
-/* try to synchronise simulation time with wall clock time, taking
-   into account desired speedup */
+/* 
+   try to synchronise simulation time with wall clock time, taking
+   into account desired speedup 
+   This tries to take account of possible granularity of
+   get_wall_time_us() so it works reasonably well on windows
+*/
 void Aircraft::sync_frame_time(void)
 {
+    frame_counter++;
     uint64_t now = get_wall_time_us();
-    uint64_t dt_us = now - last_wall_time_us;
-    if (dt_us < scaled_frame_time_us) {
-        usleep(scaled_frame_time_us - dt_us);
-        now = get_wall_time_us();
-
-        if (now > last_wall_time_us && now - last_wall_time_us < 1.0e5) {
-            float rate = 1.0e6f/(now - last_wall_time_us);
-            achieved_rate_hz = (0.98f*achieved_rate_hz) + (0.02f*rate);
-            if (achieved_rate_hz < rate_hz * target_speedup) {
-                scaled_frame_time_us *= 0.999;
-            } else {
-                scaled_frame_time_us *= 1.001;
-            }
+    if (frame_counter >= 40 &&
+        now > last_wall_time_us) {
+        float rate = frame_counter * 1.0e6f/(now - last_wall_time_us);
+        achieved_rate_hz = (0.99f*achieved_rate_hz) + (0.01f*rate);
+        if (achieved_rate_hz < rate_hz * target_speedup) {
+            scaled_frame_time_us *= 0.999f;
+        } else {
+            scaled_frame_time_us /= 0.999f;
         }
-
+#if 0
+        ::printf("achieved_rate_hz=%.3f rate=%.2f rate_hz=%.3f sft=%.1f\n",
+                 (double)achieved_rate_hz, 
+                 (double)rate,
+                 (double)rate_hz,
+                 (double)scaled_frame_time_us);
+#endif
+        uint32_t sleep_time = scaled_frame_time_us*frame_counter;
+        if (sleep_time > min_sleep_time) {
+            usleep(sleep_time);
+        }
+        last_wall_time_us = now;
+        frame_counter = 0;
     }
-    last_wall_time_us = now;
 }
 
 /* add noise based on throttle level (from 0..1) */
@@ -224,24 +251,36 @@ void Aircraft::fill_fdm(struct sitl_fdm &fdm) const
     fdm.xAccel    = accel_body.x;
     fdm.yAccel    = accel_body.y;
     fdm.zAccel    = accel_body.z;
-    Vector3f gyro_ef = SITL::convert_earth_frame(dcm, gyro);
-    fdm.rollRate  = degrees(gyro_ef.x);
-    fdm.pitchRate = degrees(gyro_ef.y);
-    fdm.yawRate   = degrees(gyro_ef.z);
+    fdm.rollRate  = degrees(gyro.x);
+    fdm.pitchRate = degrees(gyro.y);
+    fdm.yawRate   = degrees(gyro.z);
     float r, p, y;
     dcm.to_euler(&r, &p, &y);
     fdm.rollDeg  = degrees(r);
     fdm.pitchDeg = degrees(p);
     fdm.yawDeg   = degrees(y);
-    fdm.airspeed = velocity_ef.length();
+    fdm.airspeed = airspeed;
     fdm.magic = 0x4c56414f;
 }
 
 uint64_t Aircraft::get_wall_time_us() const
 {
+#ifdef __CYGWIN__
+    static DWORD tPrev;
+    static uint64_t last_ret_us;
+    if (tPrev == 0) {
+        tPrev = timeGetTime();
+        return 0;
+    }
+    DWORD now = timeGetTime();
+    last_ret_us += (uint64_t)((now - tPrev)*1000UL);
+    tPrev = now;
+    return last_ret_us;
+#else
     struct timeval tp;
     gettimeofday(&tp,NULL);
     return tp.tv_sec*1.0e6 + tp.tv_usec;
+#endif
 }
 
 /*

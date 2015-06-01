@@ -34,7 +34,7 @@ public:
 #ifndef DATAFLASH_NO_CLI
     void LogReadProcess(uint16_t log_num,
                         uint16_t start_page, uint16_t end_page, 
-                        void (*print_mode)(AP_HAL::BetterStream *port, uint8_t mode),
+                        print_mode_fn print_mode,
                         AP_HAL::BetterStream *port);
     void DumpPageInfo(AP_HAL::BetterStream *port);
     void ShowDeviceInfo(AP_HAL::BetterStream *port);
@@ -93,7 +93,7 @@ private:
     void FinishWrite(void);
 
     // Read methods
-    void ReadBlock(void *pBuffer, uint16_t size);
+    bool ReadBlock(void *pBuffer, uint16_t size);
 
     // file numbers
     void SetFileNumber(uint16_t FileNumber);

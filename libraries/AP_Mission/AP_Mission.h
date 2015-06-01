@@ -15,12 +15,13 @@
 #ifndef AP_Mission_h
 #define AP_Mission_h
 
+#include <AP_HAL.h>
+#include <AP_Vehicle.h>
 #include <GCS_MAVLink.h>
 #include <AP_Math.h>
 #include <AP_Common.h>
 #include <AP_Param.h>
 #include <AP_AHRS.h>
-#include <AP_HAL.h>
 #include <../StorageManager/StorageManager.h>
 
 // definitions
@@ -215,8 +216,8 @@ public:
     };
 
     // main program function pointers
-    typedef bool (*mission_cmd_fn_t)(const Mission_Command& cmd);
-    typedef void (*mission_complete_fn_t)(void);
+    FUNCTOR_TYPEDEF(mission_cmd_fn_t, bool, const Mission_Command&);
+    FUNCTOR_TYPEDEF(mission_complete_fn_t, void);
 
     // mission state enumeration
     enum mission_state {

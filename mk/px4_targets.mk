@@ -1,6 +1,8 @@
 # PX4 build is via external build system
 
-ifneq ($(PX4_ROOT),)
+ifeq ($(PX4_ROOT),)
+PX4_ROOT=../PX4Firmware
+endif
 
 # cope with relative paths
 ifeq ($(wildcard $(PX4_ROOT)/nuttx-configs),)
@@ -70,11 +72,17 @@ endif
 
 .PHONY: module_mk
 module_mk:
+	$(v) echo "Building $(SKETCHBOOK)/module.mk"
 	$(RULEHDR)
 	$(v) echo "# Auto-generated file - do not edit" > $(SKETCHBOOK)/module.mk.new
 	$(v) echo "MODULE_COMMAND = ArduPilot" >> $(SKETCHBOOK)/module.mk.new
+ifeq (,$(MAKE_INC))
 	$(v) echo "SRCS = Build.$(SKETCH)/$(SKETCH).cpp $(SKETCHLIBSRCSRELATIVE)" >> $(SKETCHBOOK)/module.mk.new
+else
+	$(v) echo "SRCS = $(wildcard $(SRCROOT)/*.cpp) $(SKETCHLIBSRCSRELATIVE)" >> $(SKETCHBOOK)/module.mk.new
+endif
 	$(v) echo "MODULE_STACKSIZE = 4096" >> $(SKETCHBOOK)/module.mk.new
+	$(v) echo "EXTRACXXFLAGS = -Wframe-larger-than=1200" >> $(SKETCHBOOK)/module.mk.new
 	$(v) cmp $(SKETCHBOOK)/module.mk $(SKETCHBOOK)/module.mk.new 2>/dev/null || mv $(SKETCHBOOK)/module.mk.new $(SKETCHBOOK)/module.mk
 	$(v) rm -f $(SKETCHBOOK)/module.mk.new
 
@@ -100,11 +108,12 @@ px4-v2: $(BUILDROOT)/make.flags $(PX4_ROOT)/Archives/px4fmu-v2.export $(SKETCHCP
 
 px4: px4-v1 px4-v2
 
-px4-clean: clean px4-archives-clean
+px4-clean: clean px4-archives-clean px4-cleandep
 	$(v) /bin/rm -rf $(PX4_ROOT)/makefiles/build $(PX4_ROOT)/Build
 
 px4-cleandep: clean
 	$(v) find $(PX4_ROOT)/Build -type f -name '*.d' | xargs rm -f
+	$(v) find $(SKETCHBOOK)/$(SKETCH) -type f -name '*.d' | xargs rm -f
 
 px4-v1-upload: px4-v1
 	$(RULEHDR)
@@ -165,13 +174,3 @@ $(PX4_ROOT)/Archives/px4io-v2.export:
 px4-archives:
 	$(v) $(PX4_MAKE_ARCHIVES)
 
-else
-
-px4:
-	$(error ERROR: You need to add PX4_ROOT to your config.mk)
-
-px4-clean: px4
-
-px4-upload: px4
-
-endif

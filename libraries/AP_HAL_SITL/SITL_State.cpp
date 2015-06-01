@@ -89,6 +89,9 @@ void SITL_State::_sitl_setup(void)
         _update_compass(0, 0, 0);
         _update_gps(0, 0, 0, 0, 0, 0, false);
 #endif
+        if (enable_gimbal) {
+            gimbal = new Gimbal(_sitl->state);
+        }
     }
 
     if (_synthetic_clock_mode) {
@@ -242,16 +245,16 @@ void SITL_State::_fdm_input(void)
             return;
         }
 
-        hal.scheduler->stop_clock(d.fg_pkt.timestamp_us);
-        _synthetic_clock_mode = true;
-        got_fg_input = true;
-
         if (d.fg_pkt.latitude == 0 ||
                 d.fg_pkt.longitude == 0 ||
                 d.fg_pkt.altitude <= 0) {
             // garbage input
             return;
         }
+
+        hal.scheduler->stop_clock(d.fg_pkt.timestamp_us);
+        _synthetic_clock_mode = true;
+        got_fg_input = true;
 
         if (_sitl != NULL) {
             _sitl->state = d.fg_pkt;
@@ -311,6 +314,10 @@ void SITL_State::_fdm_input_local(void)
 
     // get FDM output from the model
     sitl_model->fill_fdm(_sitl->state);
+
+    if (gimbal != NULL) {
+        gimbal->update();
+    }
 
     // update simulation time
     hal.scheduler->stop_clock(_sitl->state.timestamp_us);
@@ -381,6 +388,18 @@ void SITL_State::_simulator_servos(Aircraft::sitl_input &input)
     last_update_usec = now;
 
     _apply_servo_filter(deltat);
+
+    // pass wind into simulators, using a wind gradient below 60m
+    float altitude = _barometer?_barometer->get_altitude():0;
+    float wind_speed = _sitl->wind_speed;
+    if (altitude < 0) {
+        altitude = 0;
+    }
+    if (altitude < 60) {
+        wind_speed *= altitude / 60;
+    }
+    input.wind.speed = wind_speed;
+    input.wind.direction = _sitl->wind_direction;
 
     for (i=0; i<11; i++) {
         if (pwm_output[i] == 0xFFFF) {

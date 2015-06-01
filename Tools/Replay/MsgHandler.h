@@ -34,10 +34,7 @@ public:
     void require_field(uint8_t *msg, const char *label, R &ret)
         {   
             if (! field_value(msg, label, ret)) {
-                char all_labels[256];
-                string_for_labels(all_labels, 256);
-                ::printf("Field (%s) not found; options are (%s)\n", label, all_labels);
-                exit(1);
+                field_not_found(msg, label);
             }
         }
     void require_field(uint8_t *msg, const char *label, char *buffer, uint8_t bufferlen);
@@ -75,11 +72,13 @@ private:
     void init_field_types();
     void add_field_type(char type, size_t size);
     uint8_t size_for_type(char type);
+    void field_not_found(uint8_t *msg, const char *label);
 
 protected:
     struct log_Format f; // the format we are a parser for
     ~MsgHandler();
     void wait_timestamp(uint32_t timestamp);
+    void wait_timestamp_usec(uint64_t timestamp);
 
     uint64_t &last_timestamp_usec;
 
@@ -153,6 +152,12 @@ inline void MsgHandler::field_value_for_type_at_offset(uint8_t *msg,
     case 'e':
         ret = (R)(((int32_t*)&msg[offset])[0]);
         break;
+    case 'q':
+        ret = (R)(((int64_t*)&msg[offset])[0]);
+        break;
+    case 'Q':
+        ret = (R)(((uint64_t*)&msg[offset])[0]);
+        break;
     default:
         ::printf("Unhandled format type (%c)\n", type);
         exit(1);
@@ -199,6 +204,16 @@ public:
 
 private:
     AP_Airspeed &airspeed;
+};
+
+class MsgHandler_FRAM : public MsgHandler
+{
+public:
+    MsgHandler_FRAM(log_Format &_f, DataFlash_Class &_dataflash,
+		    uint64_t &_last_timestamp_usec) :
+	MsgHandler(_f, _dataflash, _last_timestamp_usec) { };
+
+    virtual void process_message(uint8_t *msg);
 };
 
 

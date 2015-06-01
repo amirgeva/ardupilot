@@ -252,7 +252,7 @@ enum FlipState {
 #define MASK_LOG_CURRENT                (1<<9)
 #define MASK_LOG_RCOUT                  (1<<10)
 #define MASK_LOG_OPTFLOW                (1<<11)
-#define MASK_LOG_PID                    (1<<12) // deprecated
+#define MASK_LOG_PID                    (1<<12)
 #define MASK_LOG_COMPASS                (1<<13)
 #define MASK_LOG_INAV                   (1<<14) // deprecated
 #define MASK_LOG_CAMERA                 (1<<15)
@@ -315,9 +315,6 @@ enum FlipState {
 
 // Centi-degrees to radians
 #define DEGX100 5729.57795f
-
-// mark a function as not to be inlined
-#define NOINLINE __attribute__((noinline))
 
 // Error message sub systems and error codes
 #define ERROR_SUBSYSTEM_MAIN                1

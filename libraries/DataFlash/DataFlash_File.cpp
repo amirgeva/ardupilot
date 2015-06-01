@@ -126,7 +126,7 @@ void DataFlash_File::Init(const struct LogStructure *structure, uint8_t num_type
     }
     _writebuf_head = _writebuf_tail = 0;
     _initialised = true;
-    hal.scheduler->register_io_process(AP_HAL_MEMBERPROC(&DataFlash_File::_io_timer));
+    hal.scheduler->register_io_process(FUNCTOR_BIND_MEMBER(&DataFlash_File::_io_timer, void));
 }
 
 // return true for CardInserted() if we successfully initialised
@@ -229,15 +229,18 @@ void DataFlash_File::WriteBlock(const void *pBuffer, uint16_t size)
 /*
   read a packet. The header bytes have already been read.
 */
-void DataFlash_File::ReadBlock(void *pkt, uint16_t size)
+bool DataFlash_File::ReadBlock(void *pkt, uint16_t size)
 {
     if (_read_fd == -1 || !_initialised || _open_error) {
-        return;
+        return false;
     }
 
     memset(pkt, 0, size);
-    ::read(_read_fd, pkt, size);
+    if (::read(_read_fd, pkt, size) != size) {
+        return false;
+    }
     _read_offset += size;
+    return true;
 }
 
 
@@ -467,7 +470,7 @@ uint16_t DataFlash_File::start_new_log(void)
 */
 void DataFlash_File::LogReadProcess(uint16_t log_num,
                                     uint16_t start_page, uint16_t end_page, 
-                                    void (*print_mode)(AP_HAL::BetterStream *port, uint8_t mode),
+                                    print_mode_fn print_mode,
                                     AP_HAL::BetterStream *port)
 {
     uint8_t log_step = 0;

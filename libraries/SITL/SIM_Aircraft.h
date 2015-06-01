@@ -38,6 +38,11 @@ public:
      */
     struct sitl_input {
         uint16_t servos[16];
+        struct {
+            float speed;      // m/s
+            float direction;  // degrees 0..360
+            float turbulance;
+        } wind;
     };
 
     /*
@@ -50,6 +55,13 @@ public:
      */
     void set_instance(uint8_t _instance) {
         instance = _instance;
+    }
+
+    /*
+      set directory for additional files such as aircraft models
+     */
+    void set_autotest_dir(const char *_autotest_dir) {
+        autotest_dir = _autotest_dir;
     }
 
     /*
@@ -72,6 +84,7 @@ protected:
     Vector3f position; // meters, NED from origin
     float mass; // kg
     Vector3f accel_body; // m/s/s NED, body frame
+    float airspeed; // m/s, apparent airspeed
 
     uint64_t time_now_us;
 
@@ -84,6 +97,7 @@ protected:
     float scaled_frame_time_us;
     uint64_t last_wall_time_us;
     uint8_t instance;
+    const char *autotest_dir;
 
     bool on_ground(const Vector3f &pos) const;
 
@@ -117,6 +131,8 @@ protected:
 
 private:
     uint64_t last_time_us;
+    uint32_t frame_counter;
+    const uint32_t min_sleep_time;
 };
 
 #endif // _SIM_AIRCRAFT_H

@@ -50,7 +50,6 @@ private:
 
     uint16_t control_port;
     uint16_t fdm_port;
-    char *autotest_dir;
     char *jsbsim_script;
     char *jsbsim_fgout;
     int jsbsim_stdout;
@@ -74,6 +73,8 @@ private:
     void recv_fdm(const struct sitl_input &input);
     void check_stdout(void);
     bool expect(const char *str);
+
+    void drain_control_socket();
 };
 
 /*

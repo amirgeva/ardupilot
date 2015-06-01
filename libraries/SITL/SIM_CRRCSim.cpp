@@ -38,10 +38,6 @@ CRRCSim::CRRCSim(const char *home_str, const char *frame_str) :
     sock.bind("127.0.0.1", 9003);
 
     sock.reuseaddress();
-
-    if (!sock.connect("127.0.0.1", 9002)) {
-        hal.scheduler->panic(PSTR("Unable to connect to CRRCSim on port 9002"));
-    }
     sock.set_blocking(false);
     heli_servos = (strstr(frame_str,"heli") != NULL);
 }
@@ -69,7 +65,7 @@ void CRRCSim::send_servos_heli(const struct sitl_input &input)
     pkt.yaw_rate   = constrain_float(yaw_rate, -0.5, 0.5);
     pkt.col_pitch  = constrain_float(col_pitch, -0.5, 0.5);
 
-    sock.send(&pkt, sizeof(pkt));
+    sock.sendto(&pkt, sizeof(pkt), "127.0.0.1", 9002);
 }
 
 /*
@@ -89,7 +85,7 @@ void CRRCSim::send_servos_fixed_wing(const struct sitl_input &input)
     pkt.yaw_rate   = constrain_float(yaw_rate, -0.5, 0.5);
     pkt.col_pitch  = 0;
 
-    sock.send(&pkt, sizeof(pkt));
+    sock.sendto(&pkt, sizeof(pkt), "127.0.0.1", 9002);
 }
 
 /*
@@ -116,7 +112,7 @@ void CRRCSim::recv_fdm(const struct sitl_input &input)
       we re-send the servo packet every 0.1 seconds until we get a
       reply. This allows us to cope with some packet loss to the FDM
      */
-    while (!sock.recv(&pkt, sizeof(pkt), 100)) {
+    while (sock.recv(&pkt, sizeof(pkt), 100) != sizeof(pkt)) {
         send_servos(input);
     }
 
@@ -132,6 +128,8 @@ void CRRCSim::recv_fdm(const struct sitl_input &input)
     position.x = posdelta.x;
     position.y = posdelta.y;
     position.z = -pkt.altitude;
+
+    airspeed = pkt.airspeed;
 
     dcm.from_euler(pkt.roll, pkt.pitch, pkt.yaw);
 

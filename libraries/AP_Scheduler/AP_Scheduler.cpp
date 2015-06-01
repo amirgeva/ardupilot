@@ -84,7 +84,8 @@ void AP_Scheduler::run(uint16_t time_available)
             if (_task_time_allowed <= time_available) {
                 // run it
                 _task_time_started = now;
-                task_fn_t func = (task_fn_t)pgm_read_pointer(&_tasks[i].function);
+                task_fn_t func;
+                pgm_read_block(&_tasks[i].function, &func, sizeof(func));
                 current_task = i;
                 func();
                 current_task = -1;

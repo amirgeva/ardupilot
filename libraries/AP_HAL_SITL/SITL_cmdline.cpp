@@ -17,7 +17,9 @@
 #include <SIM_Helicopter.h>
 #include <SIM_Rover.h>
 #include <SIM_CRRCSim.h>
+#include <SIM_last_letter.h>
 #include <SIM_JSBSim.h>
+#include <SIM_Tracker.h>
 
 extern const AP_HAL::HAL& hal;
 
@@ -40,6 +42,8 @@ void SITL_State::_usage(void)
            "\t--console          use console instead of TCP ports\n"
            "\t--instance N       set instance of SITL (adds 10*instance to all port numbers)\n"
            "\t--speedup SPEEDUP  set simulation speedup\n"
+           "\t--gimbal           enable simulated MAVLink gimbal\n"
+           "\t--autotest-dir DIR set directory for additional files\n"
         );
 }
 
@@ -56,7 +60,9 @@ static const struct {
     { "heli",      Helicopter::create },
     { "rover",     Rover::create },
     { "crrcsim",   CRRCSim::create },
-    { "jsbsim",    JSBSim::create }
+    { "jsbsim",    JSBSim::create },
+    { "last_letter", last_letter::create },
+    { "tracker",   Tracker::create }
 };
 
 void SITL_State::_parse_command_line(int argc, char * const argv[])
@@ -64,7 +70,12 @@ void SITL_State::_parse_command_line(int argc, char * const argv[])
     int opt;
     const char *home_str = NULL;
     const char *model_str = NULL;
+    char *autotest_dir = NULL;
     float speedup = 1.0f;
+
+    if (asprintf(&autotest_dir, SKETCHBOOK "/Tools/autotest") <= 0) {
+        hal.scheduler->panic("out of memory");
+    }
 
     signal(SIGFPE, _sig_fpe);
     // No-op SIGPIPE handler
@@ -82,7 +93,9 @@ void SITL_State::_parse_command_line(int argc, char * const argv[])
     _instance = 0;
 
     enum long_options {
-        CMDLINE_CLIENT=0
+        CMDLINE_CLIENT=0,
+        CMDLINE_GIMBAL,
+        CMDLINE_AUTOTESTDIR
     };
 
     const struct GetOptLong::option options[] = {
@@ -97,6 +110,8 @@ void SITL_State::_parse_command_line(int argc, char * const argv[])
         {"home",            true,   0, 'O'},
         {"model",           true,   0, 'M'},
         {"client",          true,   0, CMDLINE_CLIENT},
+        {"gimbal",          false,  0, CMDLINE_GIMBAL},
+        {"autotest-dir",    true,   0, CMDLINE_AUTOTESTDIR},
         {0, false, 0, 0}
     };
 
@@ -143,6 +158,12 @@ void SITL_State::_parse_command_line(int argc, char * const argv[])
         case CMDLINE_CLIENT:
             _client_address = gopt.optarg;
             break;
+        case CMDLINE_GIMBAL:
+            enable_gimbal = true;
+            break;
+        case CMDLINE_AUTOTESTDIR:
+            autotest_dir = strdup(gopt.optarg);
+            break;
         default:
             _usage();
             exit(1);
@@ -151,10 +172,11 @@ void SITL_State::_parse_command_line(int argc, char * const argv[])
 
     if (model_str && home_str) {
         for (uint8_t i=0; i<sizeof(model_constructors)/sizeof(model_constructors[0]); i++) {
-            if (strncmp(model_constructors[i].name, model_str, strlen(model_constructors[i].name)) == 0) {
+            if (strncasecmp(model_constructors[i].name, model_str, strlen(model_constructors[i].name)) == 0) {
                 sitl_model = model_constructors[i].constructor(home_str, model_str);
                 sitl_model->set_speedup(speedup);
                 sitl_model->set_instance(_instance);
+                sitl_model->set_autotest_dir(autotest_dir);
                 _synthetic_clock_mode = true;
                 printf("Started model %s at %s at speed %.1f\n", model_str, home_str, speedup);
                 break;

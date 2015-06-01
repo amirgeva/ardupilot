@@ -40,7 +40,11 @@
  # define AHRS_EKF_USE_ALWAYS     0
 #endif
 
+#if APM_BUILD_TYPE(APM_BUILD_ArduPlane)
+#define AHRS_EKF_USE_DEFAULT    1
+#else
 #define AHRS_EKF_USE_DEFAULT    0
+#endif
 
 #define AP_AHRS_TRIM_LIMIT 10.0f        // maximum trim angle in degrees
 #define AP_AHRS_RP_P_MIN   0.05f        // minimum value for AHRS_RP_P parameter
@@ -353,6 +357,9 @@ public:
 
     // true if the AHRS has completed initialisation
     virtual bool initialised(void) const { return true; };
+
+    // time that the AHRS has been up
+    virtual uint32_t uptime_ms(void) const = 0;
 
 protected:
     AHRS_VehicleClass _vehicle_class;

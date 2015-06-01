@@ -520,7 +520,7 @@ void AC_AttitudeControl::integrate_bf_rate_error_to_angle_errors()
     // yaw - limit maximum error
     _angle_bf_error.z = constrain_float(_angle_bf_error.z, -AC_ATTITUDE_RATE_STAB_ACRO_OVERSHOOT_ANGLE_MAX, AC_ATTITUDE_RATE_STAB_ACRO_OVERSHOOT_ANGLE_MAX);
 
-    // To-Do: handle case of motors being disarmed or g.rc_3.servo_out == 0 and set error to zero
+    // To-Do: handle case of motors being disarmed or channel_throttle == 0 and set error to zero
 }
 
 // update_rate_bf_targets - converts body-frame angle error to body-frame rate targets for roll, pitch and yaw axis
@@ -576,6 +576,7 @@ float AC_AttitudeControl::rate_bf_to_motor_roll(float rate_target_cds)
     // calculate error and call pid controller
     rate_error = rate_target_cds - current_rate;
     _pid_rate_roll.set_input_filter_d(rate_error);
+    _pid_rate_roll.set_desired_rate(rate_target_cds);
 
     // get p value
     p = _pid_rate_roll.get_p();
@@ -593,8 +594,6 @@ float AC_AttitudeControl::rate_bf_to_motor_roll(float rate_target_cds)
 
     // constrain output and return
     return constrain_float((p+i+d), -AC_ATTITUDE_RATE_RP_CONTROLLER_OUT_MAX, AC_ATTITUDE_RATE_RP_CONTROLLER_OUT_MAX);
-
-    // To-Do: allow logging of PIDs?
 }
 
 // rate_bf_to_motor_pitch - ask the rate controller to calculate the motor outputs to achieve the target rate in centi-degrees / second
@@ -611,6 +610,7 @@ float AC_AttitudeControl::rate_bf_to_motor_pitch(float rate_target_cds)
     // calculate error and call pid controller
     rate_error = rate_target_cds - current_rate;
     _pid_rate_pitch.set_input_filter_d(rate_error);
+    _pid_rate_pitch.set_desired_rate(rate_target_cds);
 
     // get p value
     p = _pid_rate_pitch.get_p();
@@ -628,8 +628,6 @@ float AC_AttitudeControl::rate_bf_to_motor_pitch(float rate_target_cds)
 
     // constrain output and return
     return constrain_float((p+i+d), -AC_ATTITUDE_RATE_RP_CONTROLLER_OUT_MAX, AC_ATTITUDE_RATE_RP_CONTROLLER_OUT_MAX);
-
-    // To-Do: allow logging of PIDs?
 }
 
 // rate_bf_to_motor_yaw - ask the rate controller to calculate the motor outputs to achieve the target rate in centi-degrees / second
@@ -646,6 +644,7 @@ float AC_AttitudeControl::rate_bf_to_motor_yaw(float rate_target_cds)
     // calculate error and call pid controller
     rate_error  = rate_target_cds - current_rate;
     _pid_rate_yaw.set_input_filter_all(rate_error);
+    _pid_rate_yaw.set_desired_rate(rate_target_cds);
 
     // get p value
     p = _pid_rate_yaw.get_p();
@@ -663,8 +662,6 @@ float AC_AttitudeControl::rate_bf_to_motor_yaw(float rate_target_cds)
 
     // constrain output and return
     return constrain_float((p+i+d), -AC_ATTITUDE_RATE_YAW_CONTROLLER_OUT_MAX, AC_ATTITUDE_RATE_YAW_CONTROLLER_OUT_MAX);
-
-    // To-Do: allow logging of PIDs?
 }
 
 // accel_limiting - enable or disable accel limiting

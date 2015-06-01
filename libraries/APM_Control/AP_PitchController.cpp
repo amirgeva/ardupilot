@@ -93,6 +93,14 @@ const AP_Param::GroupInfo AP_PitchController::var_info[] PROGMEM = {
 	// @User: Advanced
 	AP_GROUPINFO("IMAX",      7, AP_PitchController, gains.imax,     3000),
 
+	// @Param: FF
+	// @DisplayName: Feed forward Gain
+	// @Description: This is the gain from demanded rate to elevator output. 
+	// @Range: 0.1 4.0
+	// @Increment: 0.1
+	// @User: User
+	AP_GROUPINFO("FF",        8, AP_PitchController, gains.FF,       0.0f),
+
 	AP_GROUPEND
 };
 
@@ -141,27 +149,33 @@ int32_t AP_PitchController::_get_rate_out(float desired_rate, float scaler, bool
 				// prevent the integrator from decreasing if surface defln demand  is below the lower limit
 				integrator_delta = min(integrator_delta , 0);
 			}
-			_integrator += integrator_delta;
+			_pid_info.I += integrator_delta;
 		}
 	} else {
-		_integrator = 0;
+		_pid_info.I = 0;
 	}
 
     // Scale the integration limit
     float intLimScaled = gains.imax * 0.01f;
 
     // Constrain the integrator state
-    _integrator = constrain_float(_integrator, -intLimScaled, intLimScaled);
+    _pid_info.I = constrain_float(_pid_info.I, -intLimScaled, intLimScaled);
 
 	// Calculate equivalent gains so that values for K_P and K_I can be taken across from the old PID law
     // No conversion is required for K_D
-	float kp_ff = max((gains.P - gains.I * gains.tau) * gains.tau  - gains.D , 0) / _ahrs.get_EAS2TAS();
+    float eas2tas = _ahrs.get_EAS2TAS();
+	float kp_ff = max((gains.P - gains.I * gains.tau) * gains.tau  - gains.D , 0) / eas2tas;
+    float k_ff = gains.FF / eas2tas;
 	
 	// Calculate the demanded control surface deflection
 	// Note the scaler is applied again. We want a 1/speed scaler applied to the feed-forward
 	// path, but want a 1/speed^2 scaler applied to the rate error path. 
 	// This is because acceleration scales with speed^2, but rate scales with speed.
-	_last_out = ( (rate_error * gains.D) + (desired_rate * kp_ff) ) * scaler;
+    _pid_info.P = desired_rate * kp_ff * scaler;
+    _pid_info.FF = desired_rate * k_ff * scaler;
+    _pid_info.D = rate_error * gains.D * scaler;
+	_last_out = _pid_info.D + _pid_info.FF + _pid_info.P;
+    _pid_info.desired = desired_rate;
 
     if (autotune.running && aspeed > aparm.airspeed_min) {
         // let autotune have a go at the values 
@@ -174,7 +188,7 @@ int32_t AP_PitchController::_get_rate_out(float desired_rate, float scaler, bool
         _max_rate_neg.set_and_save_ifchanged(gains.rmax);
     }
 
-	_last_out += _integrator;
+	_last_out += _pid_info.I;
 	
 	// Convert to centi-degrees and constrain
 	return constrain_float(_last_out * 100, -4500, 4500);
@@ -290,5 +304,5 @@ int32_t AP_PitchController::get_servo_out(int32_t angle_err, float scaler, bool 
 
 void AP_PitchController::reset_I()
 {
-	_integrator = 0;
+	_pid_info.I = 0;
 }

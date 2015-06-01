@@ -58,7 +58,6 @@ AP_Terrain::AP_Terrain(AP_AHRS &_ahrs, const AP_Mission &_mission, const AP_Rall
     mission(_mission),
     rally(_rally),
     disk_io_state(DiskIoIdle),
-    last_request_time_ms(0),
     fd(-1),
     timer_setup(false),
     file_lat_degrees(0),
@@ -72,6 +71,7 @@ AP_Terrain::AP_Terrain(AP_AHRS &_ahrs, const AP_Mission &_mission, const AP_Rall
     AP_Param::setup_object_defaults(this, var_info);
     memset(&home_loc, 0, sizeof(home_loc));
     memset(&disk_block, 0, sizeof(disk_block));
+    memset(last_request_time_ms, 0, sizeof(last_request_time_ms));
 }
 
 /*
@@ -358,7 +358,7 @@ void AP_Terrain::log_terrain_data(DataFlash_Class &dataflash)
 
     struct log_TERRAIN pkt = {
         LOG_PACKET_HEADER_INIT(LOG_TERRAIN_MSG),
-        time_ms        : hal.scheduler->millis(),
+        time_us        : hal.scheduler->micros64(),
         status         : (uint8_t)status(),
         lat            : loc.lat,
         lng            : loc.lng,
