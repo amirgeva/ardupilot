@@ -115,6 +115,7 @@
 class Copter {
     public:
     friend class GCS_MAVLINK;
+    friend class ISL_Serial_Protocol;
     friend class Parameters;
 
     Copter(void);
