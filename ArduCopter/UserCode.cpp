@@ -39,6 +39,9 @@ class ISL_Serial_Protocol
   static const uint8_t REQ_GPS_LNG   = 0x0d;    
   static const uint8_t REQ_GPS_LAT   = 0x0e;    
   static const uint8_t REQ_GPS_ALT   = 0x0f;
+  static const uint8_t REQ_OPT_VX    = 0x10;
+  static const uint8_t REQ_OPT_VY    = 0x11;
+  static const uint8_t REQ_OPT_LAST  = 0x12;
   
   
   // Maximum number of telemetry data fields
@@ -75,7 +78,7 @@ class ISL_Serial_Protocol
   class Buffer
   {
   public:
-    Buffer(unsigned sz=64)
+    Buffer(unsigned sz)
     : m_Size(sz)
     , m_Buffer(new uint8_t[sz])
     {
@@ -110,6 +113,7 @@ class ISL_Serial_Protocol
     void init()
     {
       memset(m_Buffer,0,m_Size);
+      *(reinterpret_cast<uint32_t*>(m_Buffer)) = SYNC_FLAG;
     }
     
     void send(AP_HAL::UARTDriver* uart)
@@ -139,7 +143,7 @@ class ISL_Serial_Protocol
   
   void read_command_details()
   {
-    Buffer buf;
+    Buffer buf(64);
     uint8_t* ptr = buf.ptr();
     uint32_t* header=reinterpret_cast<uint32_t*>(ptr);
     uint8_t* payload=(ptr+2*sizeof(uint32_t));
@@ -168,7 +172,19 @@ class ISL_Serial_Protocol
       for(int i=0;i<REQUEST_LIMIT;++i) 
         m_Requests[i]=cmd->requests[i];
     }
-  } 
+  }
+  
+  float get_opt_vx()
+  {
+    if (!copter.optflow.enabled()) return -1;
+    return copter.optflow.bodyRate().x;
+  }
+
+  float get_opt_vy()
+  {
+    if (!copter.optflow.enabled()) return -1;
+    return copter.optflow.bodyRate().y;
+  }
 
 public:
   ISL_Serial_Protocol()
@@ -241,6 +257,9 @@ public:
         case REQ_GPS_LNG:   ADD_FIELD(int32_t,GPS_FILTER(copter.gps.location().lng));
         case REQ_GPS_LAT:   ADD_FIELD(int32_t,GPS_FILTER(copter.gps.location().lat));
         case REQ_GPS_ALT:   ADD_FIELD(int32_t,GPS_FILTER(copter.gps.location().alt));
+        case REQ_OPT_VX:  ADD_FIELD(float,get_opt_vx());
+        case REQ_OPT_VY:  ADD_FIELD(float,get_opt_vy());
+        case REQ_OPT_LAST: ADD_FIELD(uint32_t,copter.optflow.last_update());
       }
     }
     tb.calc_crc();
