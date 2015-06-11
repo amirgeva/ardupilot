@@ -35,10 +35,10 @@ public:
 private:
     /// play_tune - play one of the pre-defined tunes
     void play_tone(const uint8_t tone_index);
-
+public:
     // play_string - play tone specified by the provided string of notes
     void play_string(const char *str);
-
+private:
     // stop_cont_tone - stop playing the currently playing continuous tone
     void stop_cont_tone();
 
