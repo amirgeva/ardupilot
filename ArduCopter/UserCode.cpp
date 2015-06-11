@@ -2,6 +2,10 @@
 
 #include "Copter.h"
 
+#include <ToneAlarm_PX4.h>
+
+extern ToneAlarm_PX4 tonealarm;
+
 inline uint16_t crc16(uint16_t crc, uint8_t b)
 {
   crc ^= b;
@@ -20,8 +24,9 @@ inline uint16_t crc16(uint16_t crc, uint8_t b)
 class ISL_Serial_Protocol
 {
   static const uint32_t SYNC_FLAG = 0xFEEDBEEF;
-  static const uint32_t CMD_RC  = 0x00000001;
-  static const uint32_t CMD_CFG = 0x00000002;
+  static const uint32_t CMD_RC   = 0x00000001;
+  static const uint32_t CMD_CFG  = 0x00000002;
+  static const uint32_t CMD_TONE = 0x00000003;
   
   static const uint8_t REQ_NONE      = 0x00;
   static const uint8_t REQ_PITCH     = 0x01;
@@ -72,6 +77,15 @@ class ISL_Serial_Protocol
     { 
       buffer_size=64;
       memset(requests,0,sizeof(requests)); 
+    }
+  };
+  
+  struct CMD_Tone
+  {
+    uint8_t playstr[54];
+    void init()
+    {
+      memset(playstr,0,sizeof(playstr));
     }
   };
   
@@ -171,6 +185,11 @@ class ISL_Serial_Protocol
       m_BufferSize=cmd->buffer_size;
       for(int i=0;i<REQUEST_LIMIT;++i) 
         m_Requests[i]=cmd->requests[i];
+    }
+    if (header[1] == CMD_TONE)
+    {
+      CMD_Tone* cmd=reinterpret_cast<CMD_Tone*>(payload);
+      tonealarm.play_string((const char*)cmd->playstr);
     }
   }
   
